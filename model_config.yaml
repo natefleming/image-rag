@@ -1,0 +1,44 @@
+
+
+catalog:
+  catalog_name: nfleming
+  database_name: mars
+  volume_names: 
+    - images
+    - documents
+
+data: 
+  image_path: /Volumes/nfleming/mars/images
+  document_path: /Volumes/nfleming/mars/documents
+  source_table_name: nfleming.mars.documents
+  primary_key: id
+
+models:
+  registered_vision_model: nfleming.mars.phi-3_5-vision-instruct
+  vision_model_endpoint: mars_phi-3_5-vision-instruct
+  
+retriever:
+  embedding_model_endpoint_name: databricks-gte-large-en
+  endpoint_name: one-env-shared-endpoint-12
+  index_name: nfleming.mars.documents_index
+  primary_key: id
+  embedding_source_column: content
+  columns:
+    - id
+    - content
+    - source_path
+    - source_mime_type
+    - image_path
+    - image_mime_type
+    - image_classification
+    - image_caption
+    - original_image_size
+    - resized_image_size
+    - page_number
+    - ordinal
+  search_parameters:
+    k: 5
+  
+
+
+  
