@@ -98,6 +98,7 @@ from typing import (
     Iterator, 
     Literal, 
     Optional,
+    Sequence,
     Tuple,
 )
 import io
@@ -125,6 +126,22 @@ from databricks_langchain import ChatDatabricks
 
 from databricks.sdk import WorkspaceClient
 
+
+def load_classifications() -> Sequence[str]:
+    classifications: Sequence[dict[str, str]] = config.get("classifications")
+    return [classification.get("name") for classification in classifications]
+
+
+def prompt_for_classification(name: str) -> str:
+    classifications: Sequence[dict[str, str]] = config.get("classifications")
+    prompt: str = ""
+    for classification in classifications:
+        if classification.get("name") == name:
+            prompt = classification.get("prompt") or ""
+            break
+            
+    return prompt
+   
 
 def is_diagram(
     image: Image, 
@@ -282,11 +299,10 @@ def image_size_factory() -> Callable[[pd.Series], pd.Series]:
     return image_size_udf
 
 
-def resize_image_factory() -> Callable[[pd.Series], pd.Series]:
+def resize_image_factory(max_dimension: int = 1120) -> Callable[[pd.Series], pd.Series]:
     @F.pandas_udf(T.BinaryType())
     def resize_image_udf(images: pd.Series) -> pd.Series:
-        max_dimension: int = 1120
-
+        
         def _resize_image(b: bytes):
             try:
                 img = Image.open(io.BytesIO(b))
@@ -358,9 +374,10 @@ def image_to_base64_factory() -> Callable[[pd.Series], pd.Series]:
 
 
 def image_caption_factory() -> Callable[[Iterator[pd.Series]], Iterator[pd.Series]]:
+
     @F.pandas_udf(T.StringType())
     def image_caption_udf(iterator: Iterator[pd.Series]) -> Iterator[pd.Series]:
-        model_name = "Salesforce/blip-image-captioning-large"
+        model_name: str = "Salesforce/blip-image-captioning-large"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         processor = BlipProcessor.from_pretrained(model_name)
         model = BlipForConditionalGeneration.from_pretrained(model_name).to(device)
@@ -393,19 +410,7 @@ def classify_image_factory(model: str, api_key: str) -> Callable[[Iterator[pd.Se
 
         llm: LanguageModelLike = ChatOpenAI(model=model, api_key=api_key)
         
-        allowed_classifications: list[str] = [
-            "chart", 
-            "diagram", 
-            "infographic", 
-            "technical_drawing", 
-            "organizational_chart", 
-            "flowchart", 
-            "data_visualization", 
-            "instructional", 
-            "scientific_illustration", 
-            "map",
-            "general",
-        ]
+        allowed_classifications: list[str] = load_classifications()
 
         class ImageClassification(BaseModel):
             """
@@ -449,9 +454,17 @@ def summarize_image_factory(model: str, api_key: str) -> Callable[[Iterator[Tupl
             summaries = []
             for image_classification, base64_image in zip(image_classification_batch, base64_image_batch):
                 try:
+
+                    classification_prompt: str = prompt_for_classification(image_classification)
+                    classification_prompt = classification_prompt or prompt_for_classification("default")
+
+                    prompt: str = f"Summarize this image of a {image_classification} using the provided tools."
+                    if classification_prompt:
+                        prompt = f"{prompt} Instructions: {classification_prompt}"
+
                     message: BaseMessage = HumanMessage(
                         content=[
-                            {"type": "text", "text": f"Summarize this image. Be as detailed as possible"},
+                            {"type": "text", "text": prompt},
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -568,7 +581,7 @@ def process_documents(df: DataFrame) -> DataFrame:
 
 # COMMAND ----------
 
-glob_pattern = "*.pdf"
+glob_pattern = "*.jpeg"
 
 documents_df: DataFrame = spark.read.format("binaryFile").option("pathGlobFilter", glob_pattern).load(document_path.as_posix())
 processed_df: DataFrame = process_documents(documents_df)

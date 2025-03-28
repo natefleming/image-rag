@@ -14,9 +14,38 @@ data:
   primary_key: id
 
 models:
-  registered_vision_model: nfleming.mars.phi-3_5-vision-instruct
-  vision_model_endpoint: mars_phi-3_5-vision-instruct
+  summarization: gpt-4o
+  classification: gpt-4o
+  caption: Salesforce/blip-image-captioning-large  
   
+
+classifications:
+  - name: default
+    prompt: ""
+  - name: scenary
+    prompt: ~
+  - name: chart
+    prompt: ~
+  - name: diagram
+    prompt: ""
+  - name: infographic
+    prompt: ""
+  - name: technical_drawing
+    prompt: ""
+  - name: organizational_chart
+    prompt: ""
+  - name: flowchart
+    prompt: ""
+  - name: data_visualization
+    prompt: ""
+  - name: instructional
+    prompt: ""
+  - name: scientific_illustration
+    prompt: ""
+  - name: map
+    prompt: ""
+
+
 retriever:
   embedding_model_endpoint_name: databricks-gte-large-en
   endpoint_name: one-env-shared-endpoint-12
